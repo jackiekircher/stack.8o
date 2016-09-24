@@ -4,6 +4,14 @@
 #
 #   does this work? find out next time
 
+: current-test
+  0
+
+# 0 = fail
+# 1 = pass
+: test-status
+  1 1
+
 : stack-pointer
   0 0 0 0
 
@@ -18,15 +26,86 @@
   0 0 0 0 0 0 0 0 0 0 0 0 0 0
 
 : main
+  test-push
+  test-pop
+  report-status
+;
+
+: push
+  i := stack-pointer
+  load ve - ve
+
+  i := stack
+  i += ve
+  save v0 - vd
+
+  # increment the stack pointer 
+  ve += 14
+  i := stack-pointer
+  save ve - ve
+;
+
+: pop
+  i := stack-pointer
+  load ve - ve
+
+  # if the stack pointer is 0 there is nothing to pop
+  if ve == 0 then return
+
+  # decrement the stack pointer
+  ve += -14
+  save ve - ve
+
+  i := stack
+  i += ve
+  load v0 - vd
+;
+
+
+# test helpers
+
+: report-status
+  vd := -1
+
   loop
-    fill-registers
-    :breakpoint push
-    push
-    change-registers
-    :breakpoint changed
-    pop
-    :breakpoint pop
+    vd += 1
+    while vd < 2
+      i := test-status
+      i += vd
+      load v0
+      if v0 != 1 begin
+        # if any test fails it's already been reported so we can exit
+        exit
+      end
   again
+
+  :breakpoint all-tests-pass
+  exit
+;
+
+: fail-test
+  # determine the current test
+  i  := current-test
+  load v0
+
+  # save 0, a failing score, to the test status
+  i  := test-status
+  i  += v0
+  v0 := 0
+  save v0
+;
+
+: next-test
+  i  := current-test
+  load v0
+  v0 += 1
+  save v0
+;
+
+: reset-stack
+  v0 := 0
+  i  := stack-pointer
+  save v0
 ;
 
 : fill-registers
@@ -63,32 +142,70 @@
   vd := 2
 ;
 
-: push
-  i := stack-pointer
-  load ve - ve
 
-  i := stack
-  i += ve
-  save v0 - vd
+# tests
 
-  # increment the stack pointer 
-  ve += 14
+: test-push
+  reset-stack
+  fill-registers
+  push
+
+  # the values are actually saved to the stack
+  vd := -1
+  loop
+    vd += 1
+    while vd < 14
+      i := stack
+      i += vd
+      load v0
+      if v0 != 8 begin
+        :breakpoint failed-push
+        fail-test
+        return
+      end
+  again
+
+  # the stack pointer is incremented
   i := stack-pointer
-  save ve - ve
+  load v0
+  if v0 != 14 begin
+    :breakpoint failed-push-did-not-increment-stack-pointer
+    fail-test
+  end
+
+  next-test
 ;
 
-: pop
+: test-pop
+  reset-stack
+  fill-registers
+  push
+  change-registers
+  pop
+
+  # all values are restored correctly
+  vd := -1
+  loop
+    vd += 1
+    while vd < 14
+      i := stack
+      i += vd
+      load v0
+      if v0 != 8 begin
+        :breakpoint failed-pop
+        fail-test
+        return
+      end
+  again
+
+  # the stack pointer is decremented correctly
   i := stack-pointer
-  load ve - ve
+  load v0
+  if v0 != 0 begin
+    :breakpoint failed-pop-did-not-decrement-stack-pointer
+    fail-test
+  end
 
-  # if the stack pointer is 0 there is nothing to pop
-  if ve == 0 then return
-
-  # decrement the stack pointer
-  ve += -14
-  save ve - ve
-
-  i := stack
-  i += ve
-  load v0 - vd
+  next-test
 ;
+
