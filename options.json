@@ -1,0 +1,13 @@
+{
+         "tickrate" : "60",
+        "fillColor" : "#5B1B96",
+       "fillColor2" : "#E03B22",
+       "blendColor" : "#68E022",
+  "backgroundColor" : "#8BDCE8",
+        "buzzColor" : "#68E022",
+       "quietColor" : "#000000",
+      "shiftQuirks" :  false,
+  "loadStoreQuirks" :  false,
+    "vfOrderQuirks" :  false,
+         "enableXO" :  true
+}
