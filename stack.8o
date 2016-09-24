@@ -4,14 +4,6 @@
 #
 #   does this work? find out next time
 
-: current-test
-  0
-
-# 0 = fail
-# 1 = pass
-: test-status
-  1 1 1 1
-
 :const stacklimit 42              # this should be a multiple of 14
 
 : stack-pointer
@@ -25,14 +17,6 @@
 : stack-buffer                     # catch a potential stack overflow
   0 0 0 0 0 0 0 0 0 0 0 0 0 0
   0 0 0 0 0 0 0 0 0 0 0 0 0 0
-
-: main
-  test-push
-  test-pop
-  test-stack-underflow
-  test-stack-overflow
-  report-status
-;
 
 : push
   i := stack-pointer
@@ -74,7 +58,161 @@
 ;
 
 
-# test helpers
+#################################
+#
+# tests
+#
+
+: current-test
+  0
+
+# 0 = fail
+# 1 = pass
+: test-status
+  1 1 1 1
+
+# run all tests
+: main
+
+: test-push
+  reset-stack
+  fill-registers
+  push
+
+  # the values are actually saved to the stack
+  vd := -1
+  loop
+    vd += 1
+    while vd < 14
+      i := stack
+      i += vd
+      load v0
+      if v0 != 8 begin
+        :breakpoint failed-push
+        fail-test
+        return
+      end
+  again
+
+  # the stack pointer is incremented
+  i := stack-pointer
+  load v0
+  if v0 != 14 begin
+    :breakpoint failed-push-did-not-increment-stack-pointer
+    fail-test
+  end
+
+  next-test
+#;
+
+: test-pop
+  reset-stack
+  fill-registers
+  push
+  change-registers
+  pop
+
+  # all values are restored correctly
+  vd := -1
+  loop
+    vd += 1
+    while vd < 14
+      i := stack
+      i += vd
+      load v0
+      if v0 != 8 begin
+        :breakpoint failed-pop
+        fail-test
+        return
+      end
+  again
+
+  # the stack pointer is decremented correctly
+  i := stack-pointer
+  load v0
+  if v0 != 0 begin
+    :breakpoint failed-pop-did-not-decrement-stack-pointer
+    fail-test
+  end
+
+  next-test
+#;
+
+: test-stack-underflow
+  reset-stack
+
+  fill-registers
+  push
+  pop
+  change-registers
+  pop
+
+  # pop on an empty stack does not load from the stack
+  ve := 0
+  if v0 != 2 then ve := 1
+  if v1 != 2 then ve := 1
+  if v2 != 2 then ve := 1
+  if v3 != 2 then ve := 1
+  if v4 != 2 then ve := 1
+  if v5 != 2 then ve := 1
+  if v6 != 2 then ve := 1
+  if v7 != 2 then ve := 1
+  if v8 != 2 then ve := 1
+  if v9 != 2 then ve := 1
+  if va != 2 then ve := 1
+  if vb != 2 then ve := 1
+  if vc != 2 then ve := 1
+  if vd != 2 then ve := 1
+
+  if ve == 1 begin
+    :breakpoint failed-pop-empty-loaded-empty-stack
+    fail-test
+    return
+  end
+
+  # the stack pointer is not decremented below zero
+  i := stack-pointer
+  load v0
+  if v0 < 0 begin
+    :breakpoint failed-pop-decremented-stack-pointer-below-zero
+    fail-test
+  end
+
+  next-test
+#;
+
+: test-stack-overflow
+  fill-registers
+  push
+  push
+  push
+  push
+
+  # the stack pointer is not incremented above 42
+  i := stack-pointer
+  load v0
+  if v0 > 42 begin
+    :breakpoint failed-push-incremented-stack-pointer-above-limit
+    fail-test
+  end
+
+  # the values are not saved to the stack buffer
+  vd := -1
+  loop
+    vd += 1
+    while vd < 14
+      i := stack-buffer
+      i += vd
+      load v0
+      if v0 != 0 begin
+        :breakpoint failed-push-caused-a-stack-overflow
+        fail-test
+        return
+      end
+  again
+
+  next-test
+#;
 
 : report-status
   vd := -1
@@ -94,6 +232,12 @@
   :breakpoint all-tests-pass
   exit
 ;
+
+
+#################################
+#
+# test helpers
+#
 
 : fail-test
   # determine the current test
@@ -152,147 +296,4 @@
   vb := 2
   vc := 2
   vd := 2
-;
-
-
-# tests
-
-: test-push
-  reset-stack
-  fill-registers
-  push
-
-  # the values are actually saved to the stack
-  vd := -1
-  loop
-    vd += 1
-    while vd < 14
-      i := stack
-      i += vd
-      load v0
-      if v0 != 8 begin
-        :breakpoint failed-push
-        fail-test
-        return
-      end
-  again
-
-  # the stack pointer is incremented
-  i := stack-pointer
-  load v0
-  if v0 != 14 begin
-    :breakpoint failed-push-did-not-increment-stack-pointer
-    fail-test
-  end
-
-  next-test
-;
-
-: test-pop
-  reset-stack
-  fill-registers
-  push
-  change-registers
-  pop
-
-  # all values are restored correctly
-  vd := -1
-  loop
-    vd += 1
-    while vd < 14
-      i := stack
-      i += vd
-      load v0
-      if v0 != 8 begin
-        :breakpoint failed-pop
-        fail-test
-        return
-      end
-  again
-
-  # the stack pointer is decremented correctly
-  i := stack-pointer
-  load v0
-  if v0 != 0 begin
-    :breakpoint failed-pop-did-not-decrement-stack-pointer
-    fail-test
-  end
-
-  next-test
-;
-
-: test-stack-underflow
-  reset-stack
-
-  fill-registers
-  push
-  pop
-  change-registers
-  pop
-
-  # pop on an empty stack does not load from the stack
-  ve := 0
-  if v0 != 2 then ve := 1
-  if v1 != 2 then ve := 1
-  if v2 != 2 then ve := 1
-  if v3 != 2 then ve := 1
-  if v4 != 2 then ve := 1
-  if v5 != 2 then ve := 1
-  if v6 != 2 then ve := 1
-  if v7 != 2 then ve := 1
-  if v8 != 2 then ve := 1
-  if v9 != 2 then ve := 1
-  if va != 2 then ve := 1
-  if vb != 2 then ve := 1
-  if vc != 2 then ve := 1
-  if vd != 2 then ve := 1
-
-  if ve == 1 begin
-    :breakpoint failed-pop-empty-loaded-empty-stack
-    fail-test
-    return
-  end
-
-  # the stack pointer is not decremented below zero
-  i := stack-pointer
-  load v0
-  if v0 < 0 begin
-    :breakpoint failed-pop-decremented-stack-pointer-below-zero
-    fail-test
-  end
-
-  next-test
-;
-
-: test-stack-overflow
-  fill-registers
-  push
-  push
-  push
-  push
-
-  # the stack pointer is not incremented above 42
-  i := stack-pointer
-  load v0
-  if v0 > 42 begin
-    :breakpoint failed-push-incremented-stack-pointer-above-limit
-    fail-test
-  end
-
-  # the values are not saved to the stack buffer
-  vd := -1
-  loop
-    vd += 1
-    while vd < 14
-      i := stack-buffer
-      i += vd
-      load v0
-      if v0 != 0 begin
-        :breakpoint failed-push-caused-a-stack-overflow
-        fail-test
-        return
-      end
-  again
-
-  next-test
 ;
