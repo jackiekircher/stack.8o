@@ -10,7 +10,7 @@
 # 0 = fail
 # 1 = pass
 : test-status
-  1 1
+  1 1 1
 
 : stack-pointer
   0 0 0 0
@@ -19,15 +19,15 @@
   0 0 0 0 0 0 0 0 0 0 0 0 0 0
   0 0 0 0 0 0 0 0 0 0 0 0 0 0
   0 0 0 0 0 0 0 0 0 0 0 0 0 0
-  0 0 0 0 0 0 0 0 0 0 0 0 0 0
-  0 0 0 0 0 0 0 0 0 0 0 0 0 0
-  0 0 0 0 0 0 0 0 0 0 0 0 0 0
+
+: buffer                           # catch a potential stack overflow
   0 0 0 0 0 0 0 0 0 0 0 0 0 0
   0 0 0 0 0 0 0 0 0 0 0 0 0 0
 
 : main
   test-push
   test-pop
+  test-stack-underflow
   report-status
 ;
 
@@ -50,7 +50,10 @@
   load ve - ve
 
   # if the stack pointer is 0 there is nothing to pop
-  if ve == 0 then return
+  if ve == 0 begin
+    :breakpoint warning-stack-underflow
+    return
+  end
 
   # decrement the stack pointer
   ve += -14
@@ -209,3 +212,45 @@
   next-test
 ;
 
+: test-stack-underflow
+  reset-stack
+
+  fill-registers
+  push
+  pop
+  change-registers
+  pop
+
+  # pop on an empty stack does not load from the stack
+  ve := 0
+  if v0 != 2 then ve := 1
+  if v1 != 2 then ve := 1
+  if v2 != 2 then ve := 1
+  if v3 != 2 then ve := 1
+  if v4 != 2 then ve := 1
+  if v5 != 2 then ve := 1
+  if v6 != 2 then ve := 1
+  if v7 != 2 then ve := 1
+  if v8 != 2 then ve := 1
+  if v9 != 2 then ve := 1
+  if va != 2 then ve := 1
+  if vb != 2 then ve := 1
+  if vc != 2 then ve := 1
+  if vd != 2 then ve := 1
+
+  if ve == 1 begin
+    :breakpoint failed-pop-empty-loaded-empty-stack
+    fail-test
+    return
+  end
+
+  # the stack pointer is not decremented below zero
+  i := stack-pointer
+  load v0
+  if v0 < 0 begin
+    :breakpoint failed-pop-decremented-stack-pointer-below-zero
+    fail-test
+  end
+
+  next-test
+;
